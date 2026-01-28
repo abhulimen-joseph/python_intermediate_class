@@ -182,7 +182,15 @@ if __name__ == "__main__":
                     .save_model()
     except Exception as e:
         print(f"Error: {e}")
-          
+        print("Running step-by-step for debugging...")
+        loan_predictor.load_data()
+        loan_predictor.preprocess()
+        loan_predictor.build_processor()
+        loan_predictor.init_models()
+        loan_predictor.train_models()
+        loan_predictor.print_results()
+        loan_predictor.visualize_model()
+        loan_predictor.save_model()  
     
 
 

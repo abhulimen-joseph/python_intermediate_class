@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.tree import DecisionTreeRegressor
@@ -13,7 +12,10 @@ from sklearn.pipeline import Pipeline
 import warnings
 warnings.filterwarnings('ignore')
 
-# Set page configuration (MUST be first Streamlit command)
+# Set matplotlib style
+plt.style.use('seaborn-v0_8-whitegrid')
+
+# Set page configuration
 st.set_page_config(
     page_title="House Price Prediction",
     page_icon="🏠",
@@ -36,6 +38,9 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #1E3A8A;
         margin: 0.5rem 0;
+    }
+    .stDataFrame {
+        width: 100%;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -96,6 +101,7 @@ def preprocess_data(df):
     for col in df_clean.select_dtypes(include=[np.number]).columns:
         df_clean[col] = df_clean[col].fillna(df_clean[col].median())
     
+    # Convert numpy types to Python native types
     for col in df_clean.columns:
         if df_clean[col].dtype == np.float64:
             df_clean[col] = df_clean[col].astype(float)
@@ -103,7 +109,21 @@ def preprocess_data(df):
             df_clean[col] = df_clean[col].astype(int)
         elif df_clean[col].dtype == np.bool_:
             df_clean[col] = df_clean[col].astype(bool)
+    
     return df_clean
+
+# Helper function to make DataFrames Streamlit-safe
+def make_streamlit_safe(df):
+    """Convert DataFrame to be compatible with Streamlit"""
+    df_safe = df.copy()
+    for col in df_safe.columns:
+        if df_safe[col].dtype == np.float64:
+            df_safe[col] = df_safe[col].astype(float)
+        elif df_safe[col].dtype == np.int64:
+            df_safe[col] = df_safe[col].astype(int)
+        elif df_safe[col].dtype == 'object':
+            df_safe[col] = df_safe[col].astype(str)
+    return df_safe
 
 # Sidebar
 with st.sidebar:
@@ -118,7 +138,7 @@ with st.sidebar:
         uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
         if uploaded_file:
             df = pd.read_csv(uploaded_file)
-            st.success(f"✅ Uploaded dataset: {df.shape[0]} rows, {df.shape[1]} columns")
+            st.success(f"Uploaded dataset: {df.shape[0]} rows, {df.shape[1]} columns")
         else:
             st.warning("Please upload a CSV file or use the sample dataset")
             st.stop()
@@ -157,7 +177,7 @@ with st.sidebar:
     cv_folds = st.slider("Cross-Validation Folds", 3, 10, 5)
     
     st.markdown("---")
-    if st.button("🚀 Run Analysis", type="primary"):
+    if st.button("Run Analysis", type="primary"):
         st.session_state.run_analysis = True
 
 # Initialize session state
@@ -185,10 +205,10 @@ if 'df' in locals():
         tab1, tab2, tab3, tab4 = st.tabs(["First 10 Rows", "Last 10 Rows", "Data Types", "Statistics"])
         
         with tab1:
-            st.dataframe(df.head(10), width='stretch')
+            st.dataframe(make_streamlit_safe(df.head(10)), width='stretch')
         
         with tab2:
-            st.dataframe(df.tail(10), width='stretch')
+            st.dataframe(make_streamlit_safe(df.tail(10)), width='stretch')
         
         with tab3:
             dtype_info = pd.DataFrame({
@@ -197,15 +217,15 @@ if 'df' in locals():
                 'Unique Values': [df[col].nunique() for col in df.columns],
                 'Missing Values': df.isnull().sum().values
             })
-            st.dataframe(dtype_info, width='stretch')
+            st.dataframe(make_streamlit_safe(dtype_info), width='stretch')
         
         with tab4:
-            st.dataframe(df.describe(), width='stretch')
+            st.dataframe(make_streamlit_safe(df.describe()), width='stretch')
     
     # Show columns with string data
     string_columns = df.select_dtypes(include=['object']).columns.tolist()
     if string_columns:
-        with st.expander("⚠️ String Columns Detected"):
+        with st.expander("String Columns Detected"):
             st.write("These columns contain non-numeric data and will be processed:")
             for col in string_columns:
                 unique_vals = df[col].dropna().unique()[:5]
@@ -214,7 +234,7 @@ if 'df' in locals():
     # Run analysis when button is clicked
     if st.session_state.run_analysis:
         st.markdown("---")
-        st.markdown("## 🔄 Data Processing")
+        st.markdown("## Data Processing")
         
         with st.spinner("Preprocessing data..."):
             # Clean the data
@@ -222,7 +242,7 @@ if 'df' in locals():
             
             # Check if 'price' column exists
             if 'price' not in df_clean.columns:
-                st.error("❌ 'price' column not found in the dataset after preprocessing!")
+                st.error("'price' column not found in the dataset after preprocessing!")
                 st.write("Available columns:", df_clean.columns.tolist())
                 st.stop()
             
@@ -380,54 +400,56 @@ if 'df' in locals():
             if col in display_df.columns:
                 display_df[col] = display_df[col].apply(lambda x: f"{x:.3f}")
         
-        st.dataframe(display_df, width='stretch')
+        st.dataframe(make_streamlit_safe(display_df), width='stretch')
         
         # Visualizations
         st.markdown("---")
-        st.markdown("Visualizations")
+        st.markdown("## 📈 Visualizations")
         
         col1, col2 = st.columns(2)
         
         with col1:
             # R² Score Comparison
-            fig_r2 = go.Figure()
-            fig_r2.add_trace(go.Bar(
-                x=results_df["Model"],
-                y=results_df["Test R²"],
-                text=results_df["Test R²"].apply(lambda x: f"{x:.3f}"),
-                textposition='auto',
-                marker_color='rgba(58, 71, 80, 0.6)'
-            ))
-            fig_r2.update_layout(
-                title="Test R² Score by Model",
-                xaxis_title="Model",
-                yaxis_title="R² Score",
-                yaxis_range=[0, 1],
-                height=400
-            )
-            st.plotly_chart(fig_r2, use_container_width=True)
+            fig1, ax1 = plt.subplots(figsize=(10, 6))
+            bars1 = ax1.bar(results_df["Model"], results_df["Test R²"], 
+                color=['#1E3A8A', '#3B82F6', '#60A5FA', '#93C5FD', '#BFDBFE'])
+            ax1.set_title("Test R² Score by Model", fontsize=16, fontweight='bold')
+            ax1.set_xlabel("Model", fontsize=12)
+            ax1.set_ylabel("R² Score", fontsize=12)
+            ax1.set_ylim([0, 1])
+            ax1.tick_params(axis='x', rotation=45)
+            
+            # Add values on bars
+            for bar in bars1:
+                height = bar.get_height()
+                ax1.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+                        f'{height:.3f}', ha='center', va='bottom', fontsize=10)
+            
+            plt.tight_layout()
+            st.pyplot(fig1)
         
         with col2:
             # MAE Comparison
-            fig_mae = go.Figure()
-            fig_mae.add_trace(go.Bar(
-                x=results_df["Model"],
-                y=results_df["Test MAE"],
-                text=results_df["Test MAE"].apply(lambda x: f"${x:,.0f}"),
-                textposition='auto',
-                marker_color='rgba(255, 99, 71, 0.6)'
-            ))
-            fig_mae.update_layout(
-                title="Test MAE by Model",
-                xaxis_title="Model",
-                yaxis_title="MAE ($)",
-                height=400
-            )
-            st.plotly_chart(fig_mae, use_container_width=True)
+            fig2, ax2 = plt.subplots(figsize=(10, 6))
+            bars2 = ax2.bar(results_df["Model"], results_df["Test MAE"], 
+                color=['#DC2626', '#EF4444', '#F87171', '#FCA5A5', '#FECACA'])
+            ax2.set_title("Test MAE by Model", fontsize=16, fontweight='bold')
+            ax2.set_xlabel("Model", fontsize=12)
+            ax2.set_ylabel("MAE ($)", fontsize=12)
+            ax2.tick_params(axis='x', rotation=45)
+            
+            # Add values on bars
+            for bar in bars2:
+                height = bar.get_height()
+                ax2.text(bar.get_x() + bar.get_width()/2., height + 1000,
+                        f'${height:,.0f}', ha='center', va='bottom', fontsize=10)
+            
+            plt.tight_layout()
+            st.pyplot(fig2)
         
         # Best Model Analysis
         st.markdown("---")
-        st.markdown("## Best Model Analysis")
+        st.markdown("## 🏆 Best Model Analysis")
         
         if results_df.empty:
             st.warning("No results to display.")
@@ -450,42 +472,37 @@ if 'df' in locals():
             best_model_data = next((item for item in predictions_data if item["Model"] == best_model["Model"]), None)
             
             if best_model_data:
-                fig_scatter = go.Figure()
-                fig_scatter.add_trace(go.Scatter(
-                    x=best_model_data["y_test"],
-                    y=best_model_data["y_pred"],
-                    mode='markers',
-                    name='Predictions',
-                    marker=dict(
-                        size=8,
-                        color='rgba(30, 58, 138, 0.6)',
-                        line=dict(width=1, color='DarkSlateGrey')
-                    )
-                ))
+                fig3, ax3 = plt.subplots(figsize=(10, 8))
                 
-                # Add perfect prediction line
+                # Scatter plot
+                ax3.scatter(best_model_data["y_test"], best_model_data["y_pred"], 
+                    alpha=0.6, s=30, color='#1E3A8A', label='Predictions')
+                
+                # Perfect prediction line
                 max_val = max(best_model_data["y_test"].max(), best_model_data["y_pred"].max())
                 min_val = min(best_model_data["y_test"].min(), best_model_data["y_pred"].min())
-                fig_scatter.add_trace(go.Scatter(
-                    x=[min_val, max_val],
-                    y=[min_val, max_val],
-                    mode='lines',
-                    name='Perfect Prediction',
-                    line=dict(color='red', dash='dash')
-                ))
+                ax3.plot([min_val, max_val], [min_val, max_val], 
+                        color='red', linestyle='--', linewidth=2, label='Perfect Prediction')
                 
-                fig_scatter.update_layout(
-                    title=f"Actual vs Predicted Prices - {best_model['Model']}",
-                    xaxis_title="Actual Price ($)",
-                    yaxis_title="Predicted Price ($)",
-                    height=500
-                )
+                ax3.set_title(f"Actual vs Predicted Prices - {best_model['Model']}", 
+                    fontsize=16, fontweight='bold')
+                ax3.set_xlabel("Actual Price ($)", fontsize=12)
+                ax3.set_ylabel("Predicted Price ($)", fontsize=12)
+                ax3.legend()
+                ax3.grid(True, alpha=0.3)
                 
-                st.plotly_chart(fig_scatter, use_container_width=True)
+                # Add R² text
+                ax3.text(0.05, 0.95, f'R² = {best_model_data["r2"]:.3f}', 
+                        transform=ax3.transAxes, fontsize=12,
+                        verticalalignment='top',
+                        bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+                
+                plt.tight_layout()
+                st.pyplot(fig3)
         
         # Download results
         st.markdown("---")
-        st.markdown("## Download Results")
+        st.markdown("## 💾 Download Results")
         
         # Convert results to CSV
         csv = results_df.to_csv(index=False)
@@ -500,7 +517,7 @@ if 'df' in locals():
             )
         
         with col2:
-            if st.button("Run New Analysis"):
+            if st.button("🔄 Run New Analysis"):
                 st.session_state.run_analysis = False
                 st.rerun()
 
@@ -508,7 +525,7 @@ else:
     # Initial state
     st.info("Please use the sidebar to load your dataset and configure the analysis.")
     st.markdown("""
-    ### Instructions:
+    ### 📝 Instructions:
     1. **Load Data**: Upload your CSV or use the sample dataset
     2. **Configure Settings**: Adjust parameters in the sidebar
     3. **Select Models**: Choose which algorithms to train

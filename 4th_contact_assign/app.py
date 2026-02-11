@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from pathlib import Path
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.tree import DecisionTreeRegressor
@@ -139,9 +140,10 @@ with st.sidebar:
             st.warning("Please upload a CSV file or use the sample dataset")
             st.stop()
     else:
-        # Use the provided file path
+        # Use the provided file path (relative for Streamlit Cloud)
         try:
-            df = pd.read_csv(r"C:\Users\HomePC\python_intermediate_class_2\4th_contact_assign\kc_house_data.csv")
+            data_path = Path(__file__).resolve().parent / "kc_house_data.csv"
+            df = pd.read_csv(data_path)
             st.success(f"✅ Sample dataset loaded: {df.shape[0]} rows, {df.shape[1]} columns")
         except Exception as e:
             st.error(f"Could not load sample dataset: {str(e)}")
@@ -201,10 +203,10 @@ if 'df' in locals():
         tab1, tab2, tab3, tab4 = st.tabs(["First 10 Rows", "Last 10 Rows", "Data Types", "Statistics"])
         
         with tab1:
-            st.dataframe(make_streamlit_safe(df.head(10)), width='stretch')
+            st.dataframe(make_streamlit_safe(df.head(10)), use_container_width=True)
         
         with tab2:
-            st.dataframe(make_streamlit_safe(df.tail(10)), width='stretch')
+            st.dataframe(make_streamlit_safe(df.tail(10)), use_container_width=True)
         
         with tab3:
             dtype_info = pd.DataFrame({
@@ -213,10 +215,10 @@ if 'df' in locals():
                 'Unique Values': [df[col].nunique() for col in df.columns],
                 'Missing Values': df.isnull().sum().values
             })
-            st.dataframe(make_streamlit_safe(dtype_info), width='stretch')
+            st.dataframe(make_streamlit_safe(dtype_info), use_container_width=True)
         
         with tab4:
-            st.dataframe(make_streamlit_safe(df.describe()), width='stretch')
+            st.dataframe(make_streamlit_safe(df.describe()), use_container_width=True)
     
     # Show columns with string data
     string_columns = df.select_dtypes(include=['object']).columns.tolist()
@@ -387,7 +389,7 @@ if 'df' in locals():
             if col in display_df.columns:
                 display_df[col] = display_df[col].apply(lambda x: f"{x:.3f}")
         
-        st.dataframe(make_streamlit_safe(display_df), width='stretch')
+        st.dataframe(make_streamlit_safe(display_df), use_container_width=True)
         
         # Best Model Analysis
         st.markdown("---")

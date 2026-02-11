@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.tree import DecisionTreeRegressor
@@ -11,9 +10,6 @@ from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
 from sklearn.pipeline import Pipeline
 import warnings
 warnings.filterwarnings('ignore')
-
-# Set matplotlib style
-plt.style.use('seaborn-v0_8-whitegrid')
 
 # Set page configuration
 st.set_page_config(
@@ -317,7 +313,6 @@ if 'df' in locals():
         
         # Train models and collect results
         results = []
-        predictions_data = []
         
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -361,14 +356,6 @@ if 'df' in locals():
                     "CV R² Std": cv_std
                 })
                 
-                # Store predictions for visualization
-                predictions_data.append({
-                    "Model": name,
-                    "y_test": y_test.values,
-                    "y_pred": y_test_pred,
-                    "r2": test_r2
-                })
-                
                 st.success(f"✅ {name} trained successfully")
                 
             except Exception as e:
@@ -402,51 +389,6 @@ if 'df' in locals():
         
         st.dataframe(make_streamlit_safe(display_df), width='stretch')
         
-        # Visualizations
-        st.markdown("---")
-        st.markdown("## 📈 Visualizations")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # R² Score Comparison
-            fig1, ax1 = plt.subplots(figsize=(10, 6))
-            bars1 = ax1.bar(results_df["Model"], results_df["Test R²"], 
-                color=['#1E3A8A', '#3B82F6', '#60A5FA', '#93C5FD', '#BFDBFE'])
-            ax1.set_title("Test R² Score by Model", fontsize=16, fontweight='bold')
-            ax1.set_xlabel("Model", fontsize=12)
-            ax1.set_ylabel("R² Score", fontsize=12)
-            ax1.set_ylim([0, 1])
-            ax1.tick_params(axis='x', rotation=45)
-            
-            # Add values on bars
-            for bar in bars1:
-                height = bar.get_height()
-                ax1.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                        f'{height:.3f}', ha='center', va='bottom', fontsize=10)
-            
-            plt.tight_layout()
-            st.pyplot(fig1)
-        
-        with col2:
-            # MAE Comparison
-            fig2, ax2 = plt.subplots(figsize=(10, 6))
-            bars2 = ax2.bar(results_df["Model"], results_df["Test MAE"], 
-                color=['#DC2626', '#EF4444', '#F87171', '#FCA5A5', '#FECACA'])
-            ax2.set_title("Test MAE by Model", fontsize=16, fontweight='bold')
-            ax2.set_xlabel("Model", fontsize=12)
-            ax2.set_ylabel("MAE ($)", fontsize=12)
-            ax2.tick_params(axis='x', rotation=45)
-            
-            # Add values on bars
-            for bar in bars2:
-                height = bar.get_height()
-                ax2.text(bar.get_x() + bar.get_width()/2., height + 1000,
-                        f'${height:,.0f}', ha='center', va='bottom', fontsize=10)
-            
-            plt.tight_layout()
-            st.pyplot(fig2)
-        
         # Best Model Analysis
         st.markdown("---")
         st.markdown("## 🏆 Best Model Analysis")
@@ -467,38 +409,6 @@ if 'df' in locals():
                 st.metric("Test MAE", f"${best_model['Test MAE']:,.2f}")
             with col4:
                 st.metric("CV R² Mean", f"{best_model['CV R² Mean']:.3f}")
-            
-            # Actual vs Predicted for Best Model
-            best_model_data = next((item for item in predictions_data if item["Model"] == best_model["Model"]), None)
-            
-            if best_model_data:
-                fig3, ax3 = plt.subplots(figsize=(10, 8))
-                
-                # Scatter plot
-                ax3.scatter(best_model_data["y_test"], best_model_data["y_pred"], 
-                    alpha=0.6, s=30, color='#1E3A8A', label='Predictions')
-                
-                # Perfect prediction line
-                max_val = max(best_model_data["y_test"].max(), best_model_data["y_pred"].max())
-                min_val = min(best_model_data["y_test"].min(), best_model_data["y_pred"].min())
-                ax3.plot([min_val, max_val], [min_val, max_val], 
-                        color='red', linestyle='--', linewidth=2, label='Perfect Prediction')
-                
-                ax3.set_title(f"Actual vs Predicted Prices - {best_model['Model']}", 
-                    fontsize=16, fontweight='bold')
-                ax3.set_xlabel("Actual Price ($)", fontsize=12)
-                ax3.set_ylabel("Predicted Price ($)", fontsize=12)
-                ax3.legend()
-                ax3.grid(True, alpha=0.3)
-                
-                # Add R² text
-                ax3.text(0.05, 0.95, f'R² = {best_model_data["r2"]:.3f}', 
-                        transform=ax3.transAxes, fontsize=12,
-                        verticalalignment='top',
-                        bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-                
-                plt.tight_layout()
-                st.pyplot(fig3)
         
         # Download results
         st.markdown("---")
@@ -530,5 +440,5 @@ else:
     2. **Configure Settings**: Adjust parameters in the sidebar
     3. **Select Models**: Choose which algorithms to train
     4. **Run Analysis**: Click the 'Run Analysis' button
-    5. **View Results**: Explore metrics and visualizations
+    5. **View Results**: Explore metrics and download results
     """)
